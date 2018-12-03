@@ -1,0 +1,395 @@
+---
+swagger: "2.0"
+info:
+  description: "A Simple Blog"
+  version: "1.0.0"
+  title: "Swagger Blog"
+  termsOfService: "http://swagger.io/terms/"
+  contact:
+    email: "apiteam@swagger.io"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: "blog.swagger.io"
+basePath: "/v3"
+tags:
+- name: "article"
+  description: "Everything about users' articles"
+- name: "user"
+  description: "Operations about user"
+schemes:
+- "https"
+paths:
+  /articles/{username}:
+    get:
+      tags:
+      - "article"
+      summary: "Get articles of the user"
+      description: "Get all articles' info except their contents of the user"
+      operationId: "GetArticlesOfUser"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "gjhj"
+        required: true
+        type: "string"
+        x-exportParamName: "Username"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/inline_response_200"
+        404:
+          description: "User Not Found"
+  /article/{id}:
+    get:
+      tags:
+      - "article"
+      summary: "Get article by id"
+      description: "Get an article by it's id"
+      operationId: "GetArticleById"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "id"
+        in: "path"
+        description: "The only Id of the article for the filter"
+        required: true
+        type: "integer"
+        format: "int64"
+        x-exportParamName: "Id"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Article"
+        400:
+          description: "Invalid Id value"
+        404:
+          description: "Article Not Found"
+  /article/{id}/comments:
+    get:
+      tags:
+      - "article"
+      summary: "Get all comments of an article"
+      description: "Get all comments of an article"
+      operationId: "GetCommentsOfArticle"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "id"
+        in: "path"
+        description: "The only id of the article to return"
+        required: true
+        type: "integer"
+        format: "int64"
+        x-exportParamName: "Id"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Comment"
+        400:
+          description: "Invalid ID supplied"
+        404:
+          description: "Article Not Found"
+  /user:
+    post:
+      tags:
+      - "user"
+      summary: "sign up"
+      description: "Create a new user with the only username"
+      operationId: "SignUp"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "Created user object"
+        required: true
+        schema:
+          $ref: "#/definitions/User"
+        x-exportParamName: "Body"
+      responses:
+        200:
+          description: "successful operation"
+        400:
+          description: "Bad Requested"
+          schema:
+            $ref: "#/definitions/inline_response_400"
+  /user/{username}:
+    post:
+      tags:
+      - "user"
+      summary: "sign in"
+      description: "Check user with username and password"
+      operationId: "SignIn"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "The name of the user"
+        required: true
+        type: "string"
+        x-exportParamName: "Username"
+      - in: "body"
+        name: "body"
+        required: false
+        schema:
+          $ref: "#/definitions/body_1"
+        x-exportParamName: "Body"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/inline_response_200_1"
+        404:
+          description: "Wrong username or password"
+    put:
+      tags:
+      - "user"
+      summary: "change password"
+      description: "This can only be done by the logged in user."
+      operationId: "ChangePassword"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name that need to be updated"
+        required: true
+        type: "string"
+        x-exportParamName: "Username"
+      - in: "body"
+        name: "body"
+        description: "Updated user object"
+        required: true
+        schema:
+          $ref: "#/definitions/body"
+        x-exportParamName: "Body"
+      responses:
+        200:
+          description: "successful operation"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: "#/definitions/inline_response_400"
+  /user/{username}/article:
+    post:
+      tags:
+      - "user"
+      summary: "create article"
+      description: "create an new article for the user"
+      operationId: "CreateArticle"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "the name of user"
+        required: true
+        type: "string"
+        x-exportParamName: "Username"
+      - in: "body"
+        name: "body"
+        description: "the content of the article"
+        required: true
+        schema:
+          $ref: "#/definitions/body_2"
+        x-exportParamName: "Body"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Article"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: "#/definitions/inline_response_400"
+  /user/{username}/article/{id}/comment:
+    post:
+      tags:
+      - "user"
+      summary: "create comment"
+      description: "user creates a comment for the article"
+      operationId: "CreateComment"
+      parameters:
+      - name: "username"
+        in: "path"
+        required: true
+        type: "string"
+        x-exportParamName: "Username"
+      - name: "id"
+        in: "path"
+        required: true
+        type: "integer"
+        format: "int64"
+        x-exportParamName: "Id"
+      - in: "body"
+        name: "comment"
+        required: true
+        schema:
+          type: "string"
+        x-exportParamName: "Comment"
+      responses:
+        200:
+          description: "Successful Operation"
+          schema:
+            $ref: "#/definitions/Comment"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: "#/definitions/inline_response_400"
+securityDefinitions:
+  petstore_auth:
+    type: "oauth2"
+    authorizationUrl: "http://petstore.swagger.io/oauth/dialog"
+    flow: "implicit"
+    scopes:
+      write:pets: "modify pets in your account"
+      read:pets: "read your pets"
+  api_key:
+    type: "apiKey"
+    name: "api_key"
+    in: "header"
+definitions:
+  User:
+    type: "object"
+    required:
+    - "password"
+    - "username"
+    properties:
+      username:
+        type: "string"
+      password:
+        type: "string"
+    example:
+      password: "password"
+      username: "username"
+  Tag:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+    example:
+      name: "name"
+  Article:
+    type: "object"
+    required:
+    - "author"
+    - "content"
+    - "id"
+    - "name"
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+      name:
+        type: "string"
+      tags:
+        type: "array"
+        items:
+          $ref: "#/definitions/Tag"
+      author:
+        type: "string"
+      date:
+        type: "string"
+      content:
+        type: "string"
+    example:
+      date: "date"
+      author: "author"
+      name: "name"
+      id: 0
+      content: "content"
+      tags:
+      - name: "name"
+      - name: "name"
+  Comment:
+    type: "object"
+    required:
+    - "articleId"
+    - "author"
+    - "content"
+    - "date"
+    properties:
+      date:
+        type: "string"
+      content:
+        type: "string"
+      author:
+        type: "string"
+      articleId:
+        type: "integer"
+        format: "int64"
+    example:
+      date: "date"
+      author: "author"
+      articleId: 0
+      content: "content"
+  inline_response_200:
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+      name:
+        type: "string"
+      tags:
+        type: "array"
+        items:
+          $ref: "#/definitions/Tag"
+      author:
+        type: "string"
+      date:
+        type: "string"
+    example:
+      date: "date"
+      author: "author"
+      name: "name"
+      id: 0
+      tags:
+      - name: "name"
+      - name: "name"
+  inline_response_400:
+    properties:
+      error:
+        type: "string"
+  body:
+    type: "object"
+    properties:
+      password:
+        type: "string"
+      token:
+        type: "string"
+  body_1:
+    type: "object"
+    properties:
+      password:
+        type: "string"
+  inline_response_200_1:
+    properties:
+      token:
+        type: "string"
+    example:
+      token: "token"
+  body_2:
+    type: "object"
+    properties:
+      content:
+        type: "string"
+      tags:
+        type: "array"
+        items:
+          type: "string"
+      name:
+        type: "string"
+      token:
+        type: "string"
+externalDocs:
+  description: "Find out more about Swagger"
+  url: "http://swagger.io"

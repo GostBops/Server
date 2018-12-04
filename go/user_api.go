@@ -11,9 +11,36 @@
 package swagger
 
 import (
-	"net/http"
-	"encoding/json"
+    "encoding/json"
+    "fmt"
+    "log"
+    "net/http"
+    "strings"
+    "time"
+	"errors"
+    //"github.com/codegangsta/negroni"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/boltdb/bolt"
+    //"github.com/dgrijalva/jwt-go/request"
 )
+
+const (
+    SecretKey = "gostbops"
+)
+
+func fatal(err error) {
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+type Response struct {
+    Data string `json:"data"`
+}
+
+type Token struct {
+    Token string `json:"token"`
+}
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -31,24 +58,44 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func SignIn(w http.ResponseWriter, r *http.Request) {
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
 	var user User
 
-	err := json.NewDecoder(r.Body).Decode(&user)
+	err = json.NewDecoder(r.Body).Decode(&user)
 
 	if err != nil {
-			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprint(w, "Error in request")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, err)
+			fmt.Print(err)
 			return
 	}
-
-	user.Username == r.URL.Path
-	if strings.ToLower(user.Username) != "someone" {
-			if user.Password != "p@ssword" {
-					w.WriteHeader(http.StatusNotFound)
-					fmt.Println("Error logging in")
-					fmt.Fprint(w, "Wrong username or password")
-					return
+	user.Username = strings.Split(r.URL.Path, "/")[3]
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("User"))
+		if b != nil {
+			v := b.Get([]byte(user.Username))
+			fmt.Print(v)
+			fmt.Print([]byte(user.Username))
+			if ByteSliceEqual(v, []byte(user.Password)) {
+				return nil
+			} else {
+				return errors.New("Wrong Username or Password")
 			}
+		} else {
+			return errors.New("Wrong Username or Password")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
 	}
 
 	token := jwt.New(jwt.SigningMethodHS256)
@@ -74,10 +121,19 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	JsonResponse(response, w)
 }
 
-func SignUp(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+func ByteSliceEqual(a, b []byte) bool {
+    if len(a) != len(b) {
+        return false
+    }
+    if (a == nil) != (b == nil) {
+        return false
+    }
+    for i, v := range a {
+        if v != b[i] {
+            return false
+        }
+    }
+    return true
 }
 
 func JsonResponse(response interface{}, w http.ResponseWriter) {
@@ -91,4 +147,58 @@ func JsonResponse(response interface{}, w http.ResponseWriter) {
     w.WriteHeader(http.StatusOK)
     w.Header().Set("Content-Type", "application/json")
     w.Write(json)
+}
+
+func SignUp(w http.ResponseWriter, r *http.Request) {
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	var user User
+	err = json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil || user.Password == "" || user.Username == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "Wrong Username or Password")
+			fmt.Print(err)
+			return
+	}
+
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("User"))
+		if b != nil {
+			v := b.Get([]byte(user.Username))
+			if v != nil {
+				return errors.New("User Exists")
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte("User"))
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(user.Username), []byte(user.Password))
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Print(err)
+		fmt.Fprint(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
 }

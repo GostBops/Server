@@ -12,6 +12,7 @@ package swagger
 
 import (
 	"net/http"
+	"encoding/json"
 )
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -30,11 +31,64 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func SignIn(w http.ResponseWriter, r *http.Request) {
+	var user User
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, "Error in request")
+			return
+	}
+
+	user.Username == r.URL.Path
+	if strings.ToLower(user.Username) != "someone" {
+			if user.Password != "p@ssword" {
+					w.WriteHeader(http.StatusNotFound)
+					fmt.Println("Error logging in")
+					fmt.Fprint(w, "Wrong username or password")
+					return
+			}
+	}
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := make(jwt.MapClaims)
+	claims["exp"] = time.Now().Add(time.Hour * time.Duration(1)).Unix()
+	claims["iat"] = time.Now().Unix()
+	token.Claims = claims
+
+	if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "Error extracting the key")
+			fatal(err)
+	}
+
+	tokenString, err := token.SignedString([]byte(SecretKey))
+	if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "Error while signing the token")
+			fatal(err)
+	}
+
+	response := Token{tokenString}
+	JsonResponse(response, w)
+}
+
+func SignUp(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 }
 
-func SignUp(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+func JsonResponse(response interface{}, w http.ResponseWriter) {
+
+    json, err := json.Marshal(response)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(json)
 }

@@ -20,3 +20,7 @@ type Comment struct {
 
 	ArticleId int `json:"articleId"`
 }
+
+type Comments struct {
+	Content []Comment `json:"content"`
+}

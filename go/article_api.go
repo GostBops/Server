@@ -11,12 +11,57 @@
 package swagger
 
 import (
-	"net/http"
+	"encoding/json"
+    "fmt"
+    "log"
+    "net/http"
+    "strings"
+	"errors"
+	"strconv"
+    //"github.com/codegangsta/negroni"
+	"github.com/boltdb/bolt"
 )
 
 func GetArticleById(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	articleId := strings.Split(r.URL.Path, "/")[3]
+	Id, err:= strconv.Atoi(articleId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Wrong ArticleId")
+		fmt.Print("Wrong ArticleId")
+		return
+	}
+	var article []byte
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Article"))
+		if b != nil {
+			v := b.Get(itob(Id))
+			if v == nil {
+				return errors.New("Article Not Exists1")
+			} else {
+				article = v
+				return nil
+			}
+		} else {
+			return errors.New("Article Not Exists")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(article)
 }
 
 func GetArticlesOfUser(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +70,71 @@ func GetArticlesOfUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	articleId := strings.Split(r.URL.Path, "/")[3]
+	Id, err:= strconv.Atoi(articleId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Wrong ArticleId")
+		fmt.Print("Wrong ArticleId")
+		return
+	}
+	var article []byte
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Article"))
+		if b != nil {
+			v := b.Get(itob(Id))
+			if v == nil {
+				return errors.New("Article Not Exists1")
+			} else {
+				article = v
+				return nil
+			}
+		} else {
+			return errors.New("Article Not Exists")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
+	var comments Comments
+	var comment Comment
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Comment"))
+		if b != nil {
+			c := b.Cursor()
+
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				err = json.Unmarshal(v, &comment)
+				if err != nil {
+					return err
+				}
+				if comment.ArticleId == Id {
+					comments.Content = append(comments.Content, comment)
+				}
+			}
+
+			return nil
+		} else {
+			return errors.New("Article Not Exists")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
+
+	JsonResponse(comments, w)
 }

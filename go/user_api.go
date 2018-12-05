@@ -198,11 +198,17 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 			defer db.Close()
 
 			articleId  := strings.Split(r.URL.Path, "/")[5]
-			
+			Id, err:= strconv.Atoi(articleId)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, "Wrong ArticleId")
+				fmt.Print("Wrong ArticleId")
+				return
+			}
 			err = db.View(func(tx *bolt.Tx) error {
 				b := tx.Bucket([]byte("Article"))
 				if b != nil {
-					v := b.Get([]byte(articleId))
+					v := b.Get(itob(Id))
 					if v == nil {
 						return errors.New("Article Not Exists")
 					} else {
@@ -219,13 +225,6 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			Id, err:= strconv.Atoi(articleId)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprint(w, "Wrong ArticleId")
-				fmt.Print("Wrong ArticleId")
-				return
-			}
 			comment := &Comment{
 				Date:  time.Now().Format("2006-01-02 15:04:05"),
 				Content: "",

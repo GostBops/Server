@@ -24,3 +24,27 @@ type Article struct {
 
 	Content string `json:"content"`
 }
+
+
+type ArticleResponse struct {
+
+	Id int `json:"id,omitempty"`
+
+	Name string `json:"name,omitempty"`
+
+	Tags []Tag `json:"tags,omitempty"`
+
+	Author string `json:"author,omitempty"`
+
+	Date string `json:"date,omitempty"`
+}
+
+type ArticleCreate struct {
+
+	Content string `json:"content,omitempty"`
+
+	Tags []string `json:"tags,omitempty"`
+
+	Name string `json:"name,omitempty"`
+}
+

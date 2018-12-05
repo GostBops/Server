@@ -48,3 +48,7 @@ type ArticleCreate struct {
 	Name string `json:"name,omitempty"`
 }
 
+type ArticlesResponse struct {
+	Articles []ArticleResponse`json:"articles,omitempty"`
+}
+

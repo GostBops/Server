@@ -43,7 +43,7 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 		if b != nil {
 			v := b.Get(itob(Id))
 			if v == nil {
-				return errors.New("Article Not Exists1")
+				return errors.New("Article Not Exists")
 			} else {
 				article = v
 				return nil
@@ -65,8 +65,66 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetArticlesOfUser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	username := strings.Split(r.URL.Path, "/")[3]
+
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("User"))
+		if b != nil {
+			v := b.Get([]byte(username))
+			if v == nil {
+				return errors.New("User Not Exists")
+			} else {
+				return nil
+			}
+		} else {
+			return errors.New("User Not Exists")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
+	var articles ArticlesResponse
+	var article ArticleResponse
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Article"))
+		if b != nil {
+			c := b.Cursor()
+
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				err = json.Unmarshal(v, &article)
+				if err != nil {
+					return err
+				}
+				if article.Author == username {
+					articles.Articles = append(articles.Articles, article)
+				}
+			}
+
+			return nil
+		} else {
+			return errors.New("Article Not Exists")
+		}
+	})
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Println(err)
+		fmt.Fprint(w, err)
+		return
+	}
+
+	JsonResponse(articles, w)
+
 }
 
 func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {

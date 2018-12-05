@@ -10,13 +10,11 @@
 
 package swagger
 
-type Body2 struct {
+type ArticleCreate struct {
 
 	Content string `json:"content,omitempty"`
 
 	Tags []string `json:"tags,omitempty"`
 
 	Name string `json:"name,omitempty"`
-
-	Token string `json:"token,omitempty"`
 }

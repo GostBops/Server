@@ -18,10 +18,11 @@ import (
     "strings"
     "time"
 	"errors"
+	"encoding/binary"
     //"github.com/codegangsta/negroni"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/boltdb/bolt"
-    //"github.com/dgrijalva/jwt-go/request"
+    "github.com/dgrijalva/jwt-go/request"
 )
 
 const (
@@ -48,8 +49,133 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateArticle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+
+	var user User
+	user.Username = strings.Split(r.URL.Path, "/")[3]
+
+	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
+        func(token *jwt.Token) (interface{}, error) {
+            return []byte(user.Username), nil
+        })
+
+    if err == nil {
+        if token.Valid {
+            db, err := bolt.Open("my.db", 0600, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer db.Close()
+
+			err = db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("User"))
+				if b != nil {
+					v := b.Get([]byte(user.Username))
+					if v == nil {
+						return errors.New("User Not Exists")
+					} else {
+						return nil
+					}
+				}
+				return errors.New("User Not Exists")
+			})
+		
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Println(err)
+				fmt.Fprint(w, err)
+				return
+			}
+
+			var articleInfo ArticleCreate
+			err = json.NewDecoder(r.Body).Decode(&articleInfo)
+
+			if err != nil  || articleInfo.Content == "" || articleInfo.Name == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				if err != nil {
+					fmt.Fprint(w, err)
+					fmt.Print(err)
+				} else if articleInfo.Content == "" {
+					fmt.Fprint(w, "There is no content in your article")
+					fmt.Print("There is no content in your article")
+				} else {
+					fmt.Fprint(w, "There is no name of your article")
+					fmt.Print("There is no name of your article")
+				}
+				return
+			}
+			
+			var tags []Tag
+
+			for i := 0; i < len(articleInfo.Tags); i++ {
+				tags = append(tags, Tag{
+					Name: articleInfo.Tags[i],
+				})
+			}
+			
+
+			article := &Article {
+				Id: 1,
+				Name: articleInfo.Name,
+				Tags: tags,
+				Author: user.Username,
+				Date: time.Now().Format("2006-01-02 15:04:05"),
+				Content: articleInfo.Content,
+			}
+
+			err = db.Update(func(tx *bolt.Tx) error {
+				b, err := tx.CreateBucketIfNotExists([]byte("Article"))
+				if err != nil {
+					return err
+				}
+				id, _ := b.NextSequence()
+				article.Id = int(id)
+				encoded, err := json.Marshal(article)
+				byte_id := itob(article.Id)
+				return b.Put(byte_id, encoded)
+			})
+		
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Print(err)
+				fmt.Fprint(w, err)
+				return
+			}
+
+
+			for i := 0; i < len(tags); i++ {
+				err = db.Update(func(tx *bolt.Tx) error {
+					b, err := tx.CreateBucketIfNotExists([]byte("Tag"))
+					if err != nil {
+						return err
+					}
+					var n []byte
+					return b.Put([]byte(tags[i].Name), n)
+				})
+			
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Print(err)
+					fmt.Fprint(w, err)
+					return
+				}
+			}
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusOK)
+			JsonResponse(article, w)
+        } else {
+            w.WriteHeader(http.StatusUnauthorized)
+            fmt.Fprint(w, "Token is not valid")
+        }
+    } else {
+        w.WriteHeader(http.StatusUnauthorized)
+        fmt.Fprint(w, "Unauthorized access to this resource")
+    }
+}
+
+func itob(v int) []byte {
+    b := make([]byte, 8)
+    binary.BigEndian.PutUint64(b, uint64(v))
+    return b
 }
 
 func CreateComment(w http.ResponseWriter, r *http.Request) {
@@ -79,8 +205,6 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		b := tx.Bucket([]byte("User"))
 		if b != nil {
 			v := b.Get([]byte(user.Username))
-			fmt.Print(v)
-			fmt.Print([]byte(user.Username))
 			if ByteSliceEqual(v, []byte(user.Password)) {
 				return nil
 			} else {
@@ -110,7 +234,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 			fatal(err)
 	}
 
-	tokenString, err := token.SignedString([]byte(SecretKey))
+	tokenString, err := token.SignedString([]byte(user.Username))
 	if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "Error while signing the token")

@@ -18,5 +18,5 @@ type Comment struct {
 
 	Author string `json:"author"`
 
-	ArticleId int64 `json:"articleId"`
+	ArticleId int `json:"articleId"`
 }

@@ -19,6 +19,7 @@ import (
     "time"
 	"errors"
 	"encoding/binary"
+	"strconv"
     //"github.com/codegangsta/negroni"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/boltdb/bolt"
@@ -179,8 +180,100 @@ func itob(v int) []byte {
 }
 
 func CreateComment(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+
+	var user User
+	user.Username = strings.Split(r.URL.Path, "/")[3]
+
+	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
+        func(token *jwt.Token) (interface{}, error) {
+            return []byte(user.Username), nil
+        })
+
+    if err == nil {
+        if token.Valid {
+            db, err := bolt.Open("my.db", 0600, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer db.Close()
+
+			articleId  := strings.Split(r.URL.Path, "/")[5]
+			
+			err = db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("Article"))
+				if b != nil {
+					v := b.Get([]byte(articleId))
+					if v == nil {
+						return errors.New("Article Not Exists")
+					} else {
+						return nil
+					}
+				}
+				return errors.New("Article Not Exists")
+			})
+			
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Println(err)
+				fmt.Fprint(w, err)
+				return
+			}
+
+			Id, err:= strconv.Atoi(articleId)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, "Wrong ArticleId")
+				fmt.Print("Wrong ArticleId")
+				return
+			}
+			comment := &Comment{
+				Date:  time.Now().Format("2006-01-02 15:04:05"),
+				Content: "",
+				Author: user.Username,
+				ArticleId: Id,
+			}
+			err = json.NewDecoder(r.Body).Decode(&comment)
+
+			if err != nil  || comment.Content == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				if err != nil {
+					fmt.Fprint(w, err)
+					fmt.Print(err)
+				} else {
+					fmt.Fprint(w, "There is no content in your article")
+					fmt.Print("There is no content in your article")
+				} 
+				return
+			}
+
+			err = db.Update(func(tx *bolt.Tx) error {
+				b, err := tx.CreateBucketIfNotExists([]byte("Comment"))
+				if err != nil {
+					return err
+				}
+				id, _ := b.NextSequence()
+				encoded, err := json.Marshal(comment)
+				return b.Put(itob(int(id)), encoded)
+			})
+		
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Print(err)
+				fmt.Fprint(w, err)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusOK)
+			JsonResponse(comment, w)
+        } else {
+            w.WriteHeader(http.StatusUnauthorized)
+            fmt.Fprint(w, "Token is not valid")
+        }
+    } else {
+        w.WriteHeader(http.StatusUnauthorized)
+        fmt.Fprint(w, "Unauthorized access to this resource")
+    }
 }
 
 func SignIn(w http.ResponseWriter, r *http.Request) {

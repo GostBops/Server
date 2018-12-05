@@ -32,7 +32,7 @@ paths:
       parameters:
       - name: "username"
         in: "path"
-        description: "gjhj"
+        description: ""
         required: true
         type: "string"
         x-exportParamName: "Username"
@@ -42,7 +42,7 @@ paths:
           schema:
             type: "array"
             items:
-              $ref: "#/definitions/inline_response_200"
+              $ref: "#/definitions/ArticleResponse"
         404:
           description: "User Not Found"
   /article/{id}:
@@ -60,7 +60,6 @@ paths:
         description: "The only Id of the article for the filter"
         required: true
         type: "integer"
-        format: "int64"
         x-exportParamName: "Id"
       responses:
         200:
@@ -86,7 +85,6 @@ paths:
         description: "The only id of the article to return"
         required: true
         type: "integer"
-        format: "int64"
         x-exportParamName: "Id"
       responses:
         200:
@@ -118,11 +116,15 @@ paths:
         x-exportParamName: "Body"
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
         400:
           description: "Bad Requested"
           schema:
-            $ref: "#/definitions/inline_response_400"
+            type: string
+            example:
+            - "User Exists"
+            - "Wrong Username or Password"
+            - "..."
   /user/{username}:
     post:
       tags:
@@ -143,15 +145,25 @@ paths:
         name: "body"
         required: false
         schema:
-          $ref: "#/definitions/body_1"
-        x-exportParamName: "Body"
+          type: object
+          properties:
+            password:
+              type: string
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
           schema:
-            $ref: "#/definitions/inline_response_200_1"
+            type: object
+            properties:
+              token: 
+                type: string
+        400:
+          description: "Bad Request"
         404:
-          description: "Wrong username or password"
+          description: "Not Found"
+          schema:
+            type: string
+            example: "Wrong Username or Password"
     put:
       tags:
       - "user"
@@ -172,15 +184,17 @@ paths:
         description: "Updated user object"
         required: true
         schema:
-          $ref: "#/definitions/body"
-        x-exportParamName: "Body"
+          type: object
+          properties:
+            password:
+              type: string
       responses:
         200:
           description: "successful operation"
         400:
           description: "Bad Request"
           schema:
-            $ref: "#/definitions/inline_response_400"
+            type: string
   /user/{username}/article:
     post:
       tags:
@@ -200,17 +214,21 @@ paths:
         description: "the content of the article"
         required: true
         schema:
-          $ref: "#/definitions/body_2"
-        x-exportParamName: "Body"
+          $ref: "#/definitions/ArticleCreate"
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
           schema:
             $ref: "#/definitions/Article"
         400:
           description: "Bad Request"
           schema:
-            $ref: "#/definitions/inline_response_400"
+            type: string
+            example:
+            - "User Not Exists"
+            - "There is no name of your article"
+            - "There is no content in your article"
+            - "..."
   /user/{username}/article/{id}/comment:
     post:
       tags:
@@ -228,14 +246,15 @@ paths:
         in: "path"
         required: true
         type: "integer"
-        format: "int64"
         x-exportParamName: "Id"
       - in: "body"
-        name: "comment"
+        name: "body"
         required: true
         schema:
-          type: "string"
-        x-exportParamName: "Comment"
+          type: object
+          properties:
+            content:
+              type: string
       responses:
         200:
           description: "Successful Operation"
@@ -244,7 +263,12 @@ paths:
         400:
           description: "Bad Request"
           schema:
-            $ref: "#/definitions/inline_response_400"
+            type: string
+            example:
+            - "Article Not Exists"
+            - "Wrong ArticleId"
+            - "There is no content in your article"
+            - "..."
 securityDefinitions:
   petstore_auth:
     type: "oauth2"
@@ -288,7 +312,6 @@ definitions:
     properties:
       id:
         type: "integer"
-        format: "int64"
       name:
         type: "string"
       tags:
@@ -326,17 +349,15 @@ definitions:
         type: "string"
       articleId:
         type: "integer"
-        format: "int64"
     example:
       date: "date"
       author: "author"
       articleId: 0
       content: "content"
-  inline_response_200:
+  ArticleResponse:
     properties:
       id:
         type: "integer"
-        format: "int64"
       name:
         type: "string"
       tags:
@@ -355,29 +376,7 @@ definitions:
       tags:
       - name: "name"
       - name: "name"
-  inline_response_400:
-    properties:
-      error:
-        type: "string"
-  body:
-    type: "object"
-    properties:
-      password:
-        type: "string"
-      token:
-        type: "string"
-  body_1:
-    type: "object"
-    properties:
-      password:
-        type: "string"
-  inline_response_200_1:
-    properties:
-      token:
-        type: "string"
-    example:
-      token: "token"
-  body_2:
+  ArticleCreate:
     type: "object"
     properties:
       content:

@@ -38,13 +38,16 @@ paths:
         x-exportParamName: "Username"
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
           schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/ArticleResponse"
+            $ref: "#/definitions/ArticlesResponse"
         404:
-          description: "User Not Found"
+          description: "Not Found"
+          schema:
+            type: "string"
+            example:
+            - "User Not Exists"
+            - "Article Not Exists"
   /article/{id}:
     get:
       tags:
@@ -63,13 +66,21 @@ paths:
         x-exportParamName: "Id"
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
           schema:
             $ref: "#/definitions/Article"
         400:
-          description: "Invalid Id value"
+          description: "Bad Request"
+          schema:
+            type: "string"
+            example:
+            - "Wrong ArticleId"
         404:
-          description: "Article Not Found"
+          description: "Not Found"
+          schema:
+            type: "string"
+            example:
+            - "Article Not Exists"
   /article/{id}/comments:
     get:
       tags:
@@ -90,13 +101,20 @@ paths:
         200:
           description: "successful operation"
           schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Comment"
+            $ref: "#/definitions/Comments"
         400:
-          description: "Invalid ID supplied"
+          description: "Bad Request"
+          schema:
+            type: "string"
+            example:
+            - "Wrong ArticleId"
         404:
-          description: "Article Not Found"
+          description: "Not Found"
+          schema:
+            type: "string"
+            example:
+            - "Article Not Exists"
+            - "Comment Not Exists"
   /user:
     post:
       tags:
@@ -354,6 +372,12 @@ definitions:
       author: "author"
       articleId: 0
       content: "content"
+  Comments :
+    properties:
+      contents:
+        type: "array"
+        items:
+          $ref: '#/definitions/Comment'
   ArticleResponse:
     properties:
       id:
@@ -376,6 +400,12 @@ definitions:
       tags:
       - name: "name"
       - name: "name"
+  ArticlesResponse:
+    properties:
+      Articles:
+        type: "array"
+        items:
+          $ref: "#/definitions/ArticleResponse"
   ArticleCreate:
     type: "object"
     properties:

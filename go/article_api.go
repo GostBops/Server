@@ -183,7 +183,7 @@ func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 
 			return nil
 		} else {
-			return errors.New("Article Not Exists")
+			return errors.New("Comment Not Exists")
 		}
 	})
 

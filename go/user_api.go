@@ -12,7 +12,7 @@ package swagger
 
 import (
     "encoding/json"
-    "fmt"
+    //"fmt"
     "log"
     "net/http"
     "strings"
@@ -44,12 +44,246 @@ type Token struct {
     Token string `json:"token"`
 }
 
-func ChangePassword(w http.ResponseWriter, r *http.Request) {
+type ErrorResponse struct {
+    Error string `json:"error"`
+}
+
+
+func itob(v int) []byte {
+    b := make([]byte, 8)
+    binary.BigEndian.PutUint64(b, uint64(v))
+    return b
+}
+
+func CreateComment(w http.ResponseWriter, r *http.Request) {
+
+	var user User
+	user.Username = strings.Split(r.URL.Path, "/")[3]
+
+	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
+        func(token *jwt.Token) (interface{}, error) {
+            return []byte(user.Username), nil
+        })
+
+    if err == nil {
+        if token.Valid {
+            db, err := bolt.Open("my.db", 0600, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer db.Close()
+
+			articleId  := strings.Split(r.URL.Path, "/")[5]
+			Id, err:= strconv.Atoi(articleId)
+			if err != nil {
+				response := ErrorResponse{"Wrong ArticleId"}
+				JsonResponse(response, w, http.StatusBadRequest)
+				return
+			}
+			err = db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket([]byte("Article"))
+				if b != nil {
+					v := b.Get(itob(Id))
+					if v == nil {
+						return errors.New("Article Not Exists")
+					} else {
+						return nil
+					}
+				}
+				return errors.New("Article Not Exists")
+			})
+			
+			if err != nil {
+				response := ErrorResponse{err.Error()}
+				JsonResponse(response, w, http.StatusBadRequest)
+				return
+			}
+
+			comment := &Comment{
+				Date:  time.Now().Format("2006-01-02 15:04:05"),
+				Content: "",
+				Author: user.Username,
+				ArticleId: Id,
+			}
+			err = json.NewDecoder(r.Body).Decode(&comment)
+
+			if err != nil  || comment.Content == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				if err != nil {
+					response := ErrorResponse{err.Error()}
+					JsonResponse(response, w, http.StatusBadRequest)
+				} else {
+					response := ErrorResponse{"There is no content in your article"}
+					JsonResponse(response, w, http.StatusBadRequest)
+				} 
+				return
+			}
+
+			err = db.Update(func(tx *bolt.Tx) error {
+				b, err := tx.CreateBucketIfNotExists([]byte("Comment"))
+				if err != nil {
+					return err
+				}
+				id, _ := b.NextSequence()
+				encoded, err := json.Marshal(comment)
+				return b.Put(itob(int(id)), encoded)
+			})
+		
+			if err != nil {
+				response := ErrorResponse{err.Error()}
+				JsonResponse(response, w, http.StatusBadRequest)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusOK)
+			JsonResponse(comment, w, http.StatusOK)
+        } else {
+			response := ErrorResponse{"Token is not valid"}
+			JsonResponse(response, w, http.StatusUnauthorized)
+        }
+    } else {
+		response := ErrorResponse{"Unauthorized access to this resource"}
+		JsonResponse(response, w, http.StatusUnauthorized)
+    }
+}
+
+func SignIn(w http.ResponseWriter, r *http.Request) {
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	var user User
+
+	err = json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil {
+			response := ErrorResponse{err.Error()}
+			JsonResponse(response, w, http.StatusBadRequest)
+			return
+	}
+
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("User"))
+		if b != nil {
+			v := b.Get([]byte(user.Username))
+			if ByteSliceEqual(v, []byte(user.Password)) {
+				return nil
+			} else {
+				return errors.New("Wrong Username or Password")
+			}
+		} else {
+			return errors.New("Wrong Username or Password")
+		}
+	})
+
+	if err != nil {
+		response := ErrorResponse{err.Error()}
+		JsonResponse(response, w, http.StatusNotFound)
+		return
+	}
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := make(jwt.MapClaims)
+	claims["exp"] = time.Now().Add(time.Hour * time.Duration(1)).Unix()
+	claims["iat"] = time.Now().Unix()
+	token.Claims = claims
+
+	if err != nil {
+			fatal(err)
+	}
+
+	tokenString, err := token.SignedString([]byte(user.Username))
+	if err != nil {
+			fatal(err)
+	}
+
+	response := Token{tokenString}
+	JsonResponse(response, w, http.StatusOK)
+}
+
+func ByteSliceEqual(a, b []byte) bool {
+    if len(a) != len(b) {
+        return false
+    }
+    if (a == nil) != (b == nil) {
+        return false
+    }
+    for i, v := range a {
+        if v != b[i] {
+            return false
+        }
+    }
+    return true
+}
+
+func JsonResponse(response interface{}, w http.ResponseWriter, code int) {
+
+    json, err := json.Marshal(response)
+    if err != nil {
+        log.Fatal(err)
+        return
+    }
+
+    w.WriteHeader(code)
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(json)
+}
+
+func SignUp(w http.ResponseWriter, r *http.Request) {
+	db, err := bolt.Open("my.db", 0600, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+	defer db.Close()
+
+	var user User
+	err = json.NewDecoder(r.Body).Decode(&user)
+
+	if err != nil || user.Password == "" || user.Username == "" {
+			response := ErrorResponse{"Wrong Username or Password"}
+			JsonResponse(response, w, http.StatusBadRequest)
+			return
+	}
+
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("User"))
+		if b != nil {
+			v := b.Get([]byte(user.Username))
+			if v != nil {
+				return errors.New("User Exists")
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		response := ErrorResponse{err.Error()}
+		JsonResponse(response, w, http.StatusBadRequest)
+		return
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte("User"))
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(user.Username), []byte(user.Password))
+	})
+
+	if err != nil {
+		response := ErrorResponse{err.Error()}
+		JsonResponse(response, w, http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 }
 
-func CreateArticle(w http.ResponseWriter, r *http.Request) {
+/*func CreateArticle(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	user.Username = strings.Split(r.URL.Path, "/")[3]
@@ -118,7 +352,6 @@ func CreateArticle(w http.ResponseWriter, r *http.Request) {
 				Id: 1,
 				Name: articleInfo.Name,
 				Tags: tags,
-				Author: user.Username,
 				Date: time.Now().Format("2006-01-02 15:04:05"),
 				Content: articleInfo.Content,
 			}
@@ -162,7 +395,7 @@ func CreateArticle(w http.ResponseWriter, r *http.Request) {
 			}
 			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			w.WriteHeader(http.StatusOK)
-			JsonResponse(article, w)
+			JsonResponse(article, w, http.StatusOK)
         } else {
             w.WriteHeader(http.StatusUnauthorized)
             fmt.Fprint(w, "Token is not valid")
@@ -171,250 +404,4 @@ func CreateArticle(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusUnauthorized)
         fmt.Fprint(w, "Unauthorized access to this resource")
     }
-}
-
-func itob(v int) []byte {
-    b := make([]byte, 8)
-    binary.BigEndian.PutUint64(b, uint64(v))
-    return b
-}
-
-func CreateComment(w http.ResponseWriter, r *http.Request) {
-
-	var user User
-	user.Username = strings.Split(r.URL.Path, "/")[3]
-
-	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
-        func(token *jwt.Token) (interface{}, error) {
-            return []byte(user.Username), nil
-        })
-
-    if err == nil {
-        if token.Valid {
-            db, err := bolt.Open("my.db", 0600, nil)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer db.Close()
-
-			articleId  := strings.Split(r.URL.Path, "/")[5]
-			Id, err:= strconv.Atoi(articleId)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprint(w, "Wrong ArticleId")
-				fmt.Print("Wrong ArticleId")
-				return
-			}
-			err = db.View(func(tx *bolt.Tx) error {
-				b := tx.Bucket([]byte("Article"))
-				if b != nil {
-					v := b.Get(itob(Id))
-					if v == nil {
-						return errors.New("Article Not Exists")
-					} else {
-						return nil
-					}
-				}
-				return errors.New("Article Not Exists")
-			})
-			
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Println(err)
-				fmt.Fprint(w, err)
-				return
-			}
-
-			comment := &Comment{
-				Date:  time.Now().Format("2006-01-02 15:04:05"),
-				Content: "",
-				Author: user.Username,
-				ArticleId: Id,
-			}
-			err = json.NewDecoder(r.Body).Decode(&comment)
-
-			if err != nil  || comment.Content == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				if err != nil {
-					fmt.Fprint(w, err)
-					fmt.Print(err)
-				} else {
-					fmt.Fprint(w, "There is no content in your article")
-					fmt.Print("There is no content in your article")
-				} 
-				return
-			}
-
-			err = db.Update(func(tx *bolt.Tx) error {
-				b, err := tx.CreateBucketIfNotExists([]byte("Comment"))
-				if err != nil {
-					return err
-				}
-				id, _ := b.NextSequence()
-				encoded, err := json.Marshal(comment)
-				return b.Put(itob(int(id)), encoded)
-			})
-		
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Print(err)
-				fmt.Fprint(w, err)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			w.WriteHeader(http.StatusOK)
-			JsonResponse(comment, w)
-        } else {
-            w.WriteHeader(http.StatusUnauthorized)
-            fmt.Fprint(w, "Token is not valid")
-        }
-    } else {
-        w.WriteHeader(http.StatusUnauthorized)
-        fmt.Fprint(w, "Unauthorized access to this resource")
-    }
-}
-
-func SignIn(w http.ResponseWriter, r *http.Request) {
-	db, err := bolt.Open("my.db", 0600, nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-	defer db.Close()
-
-	var user User
-
-	err = json.NewDecoder(r.Body).Decode(&user)
-
-	if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, err)
-			fmt.Print(err)
-			return
-	}
-	user.Username = strings.Split(r.URL.Path, "/")[3]
-	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("User"))
-		if b != nil {
-			v := b.Get([]byte(user.Username))
-			if ByteSliceEqual(v, []byte(user.Password)) {
-				return nil
-			} else {
-				return errors.New("Wrong Username or Password")
-			}
-		} else {
-			return errors.New("Wrong Username or Password")
-		}
-	})
-
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
-		return
-	}
-
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := make(jwt.MapClaims)
-	claims["exp"] = time.Now().Add(time.Hour * time.Duration(1)).Unix()
-	claims["iat"] = time.Now().Unix()
-	token.Claims = claims
-
-	if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "Error extracting the key")
-			fatal(err)
-	}
-
-	tokenString, err := token.SignedString([]byte(user.Username))
-	if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "Error while signing the token")
-			fatal(err)
-	}
-
-	response := Token{tokenString}
-	JsonResponse(response, w)
-}
-
-func ByteSliceEqual(a, b []byte) bool {
-    if len(a) != len(b) {
-        return false
-    }
-    if (a == nil) != (b == nil) {
-        return false
-    }
-    for i, v := range a {
-        if v != b[i] {
-            return false
-        }
-    }
-    return true
-}
-
-func JsonResponse(response interface{}, w http.ResponseWriter) {
-
-    json, err := json.Marshal(response)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    w.WriteHeader(http.StatusOK)
-    w.Header().Set("Content-Type", "application/json")
-    w.Write(json)
-}
-
-func SignUp(w http.ResponseWriter, r *http.Request) {
-	db, err := bolt.Open("my.db", 0600, nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-	defer db.Close()
-
-	var user User
-	err = json.NewDecoder(r.Body).Decode(&user)
-
-	if err != nil || user.Password == "" || user.Username == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "Wrong Username or Password")
-			fmt.Print(err)
-			return
-	}
-
-	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("User"))
-		if b != nil {
-			v := b.Get([]byte(user.Username))
-			if v != nil {
-				return errors.New("User Exists")
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
-		return
-	}
-
-	err = db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte("User"))
-		if err != nil {
-			return err
-		}
-		return b.Put([]byte(user.Username), []byte(user.Password))
-	})
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Print(err)
-		fmt.Fprint(w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-}
+}*/

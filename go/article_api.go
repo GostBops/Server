@@ -12,15 +12,18 @@ package swagger
 
 import (
 	"encoding/json"
+	"encoding/binary"
     "fmt"
     "log"
-    "net/http"
+	"net/http"
+	"net/url"
     "strings"
 	"errors"
 	"strconv"
     //"github.com/codegangsta/negroni"
 	"github.com/boltdb/bolt"
 )
+
 
 func GetArticleById(w http.ResponseWriter, r *http.Request) {
 	db, err := bolt.Open("my.db", 0600, nil)
@@ -32,9 +35,8 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 	articleId := strings.Split(r.URL.Path, "/")[3]
 	Id, err:= strconv.Atoi(articleId)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "Wrong ArticleId")
-		fmt.Print("Wrong ArticleId")
+		reponse := ErrorResponse{"Wrong ArticleId"}
+		JsonResponse(reponse, w, http.StatusBadRequest)
 		return
 	}
 	var article []byte
@@ -54,9 +56,8 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
+		reponse := ErrorResponse{err.Error()}
+		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -64,66 +65,57 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
     w.Write(article)
 }
 
-func GetArticlesOfUser(w http.ResponseWriter, r *http.Request) {
+func GetArticles(w http.ResponseWriter, r *http.Request) {
 	db, err := bolt.Open("my.db", 0600, nil)
     if err != nil {
         log.Fatal(err)
     }
 	defer db.Close()
 
-	username := strings.Split(r.URL.Path, "/")[3]
-
-	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("User"))
-		if b != nil {
-			v := b.Get([]byte(username))
-			if v == nil {
-				return errors.New("User Not Exists")
-			} else {
-				return nil
-			}
-		} else {
-			return errors.New("User Not Exists")
-		}
-	})
-
+	u, err := url.Parse(r.URL.String())
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
-		return
+		log.Fatal(err)
 	}
+	m, _ := url.ParseQuery(u.RawQuery)
+	page := m["page"][0]
+	IdIndex, err:= strconv.Atoi(page)
+	IdIndex = (IdIndex - 1)* 10 + 1
 	var articles ArticlesResponse
 	var article ArticleResponse
 	err = db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Article"))
 		if b != nil {
 			c := b.Cursor()
-
-			for k, v := c.First(); k != nil; k, v = c.Next() {
+			 k, v := c.Seek(itob(IdIndex))
+			 if k == nil {
+				 return errors.New("Page is out of index")
+			 }
+			 key := binary.BigEndian.Uint64(k) 
+			 fmt.Print(key)
+			 if int(key) != IdIndex {
+				 return errors.New("Page is out of index")
+			 }
+			 count := 0
+			for ; k != nil && count < 10; k, v = c.Next() {
 				err = json.Unmarshal(v, &article)
 				if err != nil {
 					return err
 				}
-				if article.Author == username {
-					articles.Articles = append(articles.Articles, article)
-				}
+				articles.Articles = append(articles.Articles, article)
+				count = count + 1
 			}
-
 			return nil
 		} else {
 			return errors.New("Article Not Exists")
 		}
 	})
-
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
+		reponse := ErrorResponse{err.Error()}
+		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
 
-	JsonResponse(articles, w)
+	JsonResponse(articles, w, http.StatusOK)
 
 }
 
@@ -137,9 +129,8 @@ func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 	articleId := strings.Split(r.URL.Path, "/")[3]
 	Id, err:= strconv.Atoi(articleId)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "Wrong ArticleId")
-		fmt.Print("Wrong ArticleId")
+		reponse := ErrorResponse{"Wrong ArticleId"}
+		JsonResponse(reponse, w, http.StatusBadRequest)
 		return
 	}
 	var article []byte
@@ -159,9 +150,8 @@ func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
+		reponse := ErrorResponse{err.Error()}
+		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
 	var comments Comments
@@ -188,11 +178,10 @@ func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Println(err)
-		fmt.Fprint(w, err)
+		reponse := ErrorResponse{err.Error()}
+		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
 
-	JsonResponse(comments, w)
+	JsonResponse(comments, w, http.StatusOK)
 }

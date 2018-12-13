@@ -64,10 +64,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"GetArticlesOfUser",
+		"GetArticles",
 		strings.ToUpper("Get"),
-		"/v3/articles/{username}",
-		GetArticlesOfUser,
+		"/v3/articles",
+		GetArticles,
 	},
 
 	Route{
@@ -75,20 +75,6 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/v3/article/{id}/comments",
 		GetCommentsOfArticle,
-	},
-
-	Route{
-		"ChangePassword",
-		strings.ToUpper("Put"),
-		"/v3/user/{username}",
-		ChangePassword,
-	},
-
-	Route{
-		"CreateArticle",
-		strings.ToUpper("Post"),
-		"/v3/user/{username}/article",
-		CreateArticle,
 	},
 
 	Route{
@@ -101,14 +87,22 @@ var routes = Routes{
 	Route{
 		"SignIn",
 		strings.ToUpper("Post"),
-		"/v3/user/{username}",
+		"/v3/auth/signin",
 		SignIn,
 	},
 
 	Route{
 		"SignUp",
 		strings.ToUpper("Post"),
-		"/v3/user",
+		"/v3/auth/signup",
 		SignUp,
 	},
+
+
+	/*Route{
+		"CreateArticle",
+		strings.ToUpper("Post"),
+		"/v3/user/{username}/article",
+		CreateArticle,
+	},*/
 }

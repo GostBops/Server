@@ -20,22 +20,21 @@ tags:
 schemes:
 - "https"
 paths:
-  /articles/{username}:
+  /articles:
     get:
       tags:
       - "article"
-      summary: "Get articles of the user"
-      description: "Get all articles' info except their contents of the user"
-      operationId: "GetArticlesOfUser"
+      summary: "Get articles"
+      description: "Get the title of the request page of articles"
+      operationId: "GetArticles"
       produces:
       - "application/json"
       parameters:
-      - name: "username"
-        in: "path"
-        description: ""
+      - name: "page"
+        in: "query"
+        description: "the request page"
         required: true
         type: "string"
-        x-exportParamName: "Username"
       responses:
         200:
           description: "Successful Operation"
@@ -44,10 +43,13 @@ paths:
         404:
           description: "Not Found"
           schema:
-            type: "string"
-            example:
-            - "User Not Exists"
-            - "Article Not Exists"
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "User Not Exists"
+                - "Article Not Exists"
   /article/{id}:
     get:
       tags:
@@ -72,15 +74,21 @@ paths:
         400:
           description: "Bad Request"
           schema:
-            type: "string"
-            example:
-            - "Wrong ArticleId"
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "Wrong ArticleId"
         404:
           description: "Not Found"
           schema:
-            type: "string"
-            example:
-            - "Article Not Exists"
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "Article Not Exists"
   /article/{id}/comments:
     get:
       tags:
@@ -99,23 +107,29 @@ paths:
         x-exportParamName: "Id"
       responses:
         200:
-          description: "successful operation"
+          description: "Successful Operation"
           schema:
             $ref: "#/definitions/Comments"
         400:
           description: "Bad Request"
           schema:
-            type: "string"
-            example:
-            - "Wrong ArticleId"
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "Wrong ArticleId"
         404:
           description: "Not Found"
           schema:
-            type: "string"
-            example:
-            - "Article Not Exists"
-            - "Comment Not Exists"
-  /user:
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "Article Not Exists"
+                - "Comment Not Exists"
+  /auth/signup:
     post:
       tags:
       - "user"
@@ -138,12 +152,15 @@ paths:
         400:
           description: "Bad Requested"
           schema:
-            type: string
-            example:
-            - "User Exists"
-            - "Wrong Username or Password"
-            - "..."
-  /user/{username}:
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "User Exists"
+                - "Wrong Username or Password"
+                - "..."
+  /auth/signin:
     post:
       tags:
       - "user"
@@ -153,20 +170,11 @@ paths:
       produces:
       - "application/json"
       parameters:
-      - name: "username"
-        in: "path"
-        description: "The name of the user"
-        required: true
-        type: "string"
-        x-exportParamName: "Username"
       - in: "body"
         name: "body"
-        required: false
-        schema:
-          type: object
-          properties:
-            password:
-              type: string
+        required: true
+        schema:          
+          $ref: "#/definitions/User"
       responses:
         200:
           description: "Successful Operation"
@@ -175,78 +183,15 @@ paths:
             properties:
               token: 
                 type: string
-        400:
-          description: "Bad Request"
         404:
           description: "Not Found"
           schema:
-            type: string
-            example: "Wrong Username or Password"
-    put:
-      tags:
-      - "user"
-      summary: "change password"
-      description: "This can only be done by the logged in user."
-      operationId: "ChangePassword"
-      produces:
-      - "application/json"
-      parameters:
-      - name: "username"
-        in: "path"
-        description: "name that need to be updated"
-        required: true
-        type: "string"
-        x-exportParamName: "Username"
-      - in: "body"
-        name: "body"
-        description: "Updated user object"
-        required: true
-        schema:
-          type: object
-          properties:
-            password:
-              type: string
-      responses:
-        200:
-          description: "successful operation"
-        400:
-          description: "Bad Request"
-          schema:
-            type: string
-  /user/{username}/article:
-    post:
-      tags:
-      - "user"
-      summary: "create article"
-      description: "create an new article for the user"
-      operationId: "CreateArticle"
-      parameters:
-      - name: "username"
-        in: "path"
-        description: "the name of user"
-        required: true
-        type: "string"
-        x-exportParamName: "Username"
-      - in: "body"
-        name: "body"
-        description: "the content of the article"
-        required: true
-        schema:
-          $ref: "#/definitions/ArticleCreate"
-      responses:
-        200:
-          description: "Successful Operation"
-          schema:
-            $ref: "#/definitions/Article"
-        400:
-          description: "Bad Request"
-          schema:
-            type: string
-            example:
-            - "User Not Exists"
-            - "There is no name of your article"
-            - "There is no content in your article"
-            - "..."
+            type: object
+            properties:
+              error: 
+                type: string
+                example: "Wrong Username or Password"
+
   /user/{username}/article/{id}/comment:
     post:
       tags:
@@ -281,12 +226,15 @@ paths:
         400:
           description: "Bad Request"
           schema:
-            type: string
-            example:
-            - "Article Not Exists"
-            - "Wrong ArticleId"
-            - "There is no content in your article"
-            - "..."
+            type: object
+            properties:
+              error: 
+                type: string
+                example:
+                - "Article Not Exists"
+                - "Wrong ArticleId"
+                - "There is no content in your article"
+                - "..."
 securityDefinitions:
   petstore_auth:
     type: "oauth2"
@@ -336,8 +284,6 @@ definitions:
         type: "array"
         items:
           $ref: "#/definitions/Tag"
-      author:
-        type: "string"
       date:
         type: "string"
       content:
@@ -384,41 +330,12 @@ definitions:
         type: "integer"
       name:
         type: "string"
-      tags:
-        type: "array"
-        items:
-          $ref: "#/definitions/Tag"
-      author:
-        type: "string"
-      date:
-        type: "string"
-    example:
-      date: "date"
-      author: "author"
-      name: "name"
-      id: 0
-      tags:
-      - name: "name"
-      - name: "name"
   ArticlesResponse:
     properties:
       Articles:
         type: "array"
         items:
           $ref: "#/definitions/ArticleResponse"
-  ArticleCreate:
-    type: "object"
-    properties:
-      content:
-        type: "string"
-      tags:
-        type: "array"
-        items:
-          type: "string"
-      name:
-        type: "string"
-      token:
-        type: "string"
 externalDocs:
   description: "Find out more about Swagger"
   url: "http://swagger.io"

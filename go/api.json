@@ -1,0 +1,8 @@
+{
+    "GetArticleById":"/v3/article/{id}",
+    "GetArticles":"/v3/articles",
+    "GetCommentsOfArticle":"/v3/article/{id}/comments",
+    "CreateComment":"/v3/article/{id}/comment",
+    "SignIn":"/v3/auth/signin",
+    "SignUp": "/v3/auth/signup"
+}

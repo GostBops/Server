@@ -11,10 +11,10 @@
 package swagger
 
 import (
-	"fmt"
+	//"fmt"
 	"net/http"
 	"strings"
-
+	"io/ioutil"
 	"github.com/gorilla/mux"
 )
 
@@ -44,8 +44,13 @@ func NewRouter() *mux.Router {
 	return router
 }
 
+
 func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello World!")
+	str, _ := ioutil.ReadFile("./go/api.json")
+
+    w.WriteHeader(http.StatusOK)
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(str)
 }
 
 var routes = Routes{
@@ -80,7 +85,7 @@ var routes = Routes{
 	Route{
 		"CreateComment",
 		strings.ToUpper("Post"),
-		"/v3/user/{username}/article/{id}/comment",
+		"/v3/article/{id}/comment",
 		CreateComment,
 	},
 

@@ -103,11 +103,38 @@ var routes = Routes{
 		SignUp,
 	},
 
+	Route{
+		"OPTIONS",
+		strings.ToUpper("options"),
+		"/v3/auth/signin",
+		Options,
+	},
 
+	Route{
+		"OPTIONS",
+		strings.ToUpper("options"),
+		"/v3/article/{id}/comment",
+		Options,
+	},
+
+	Route{
+		"OPTIONS",
+		strings.ToUpper("options"),
+		"/v3/auth/signup",
+		Options,
+	},
 	/*Route{
 		"CreateArticle",
 		strings.ToUpper("Post"),
 		"/v3/user/{username}/article",
 		CreateArticle,
 	},*/
+}
+
+func Options(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,Content-Type,Authorization")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(204)
 }

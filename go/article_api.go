@@ -39,7 +39,7 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 		JsonResponse(reponse, w, http.StatusBadRequest)
 		return
 	}
-	var article []byte
+	var article Article
 	err = db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Article"))
 		if b != nil {
@@ -47,7 +47,7 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 			if v == nil {
 				return errors.New("Article Not Exists")
 			} else {
-				article = v
+				_ = json.Unmarshal(v, &article)
 				return nil
 			}
 		} else {
@@ -60,9 +60,8 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-    w.Header().Set("Content-Type", "application/json")
-    w.Write(article)
+
+	JsonResponse(article, w, http.StatusOK)
 }
 
 func GetArticles(w http.ResponseWriter, r *http.Request) {

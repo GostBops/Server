@@ -11,19 +11,19 @@
 package swagger
 
 import (
-    "encoding/json"
-    //"fmt"
-    "log"
-    "net/http"
-    "strings"
-    "time"
-	"errors"
 	"encoding/binary"
-	"strconv"
-    //"github.com/codegangsta/negroni"
-	"github.com/dgrijalva/jwt-go"
+	"encoding/json"
+	"errors"
 	"github.com/boltdb/bolt"
-    "github.com/dgrijalva/jwt-go/request"
+	//"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	//"github.com/codegangsta/negroni"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go/request"
 )
 
 const (
@@ -134,8 +134,7 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-			w.WriteHeader(http.StatusOK)
+
 			JsonResponse(comment, w, http.StatusOK)
         } else {
 			response := ErrorResponse{"Token is not valid"}
@@ -219,15 +218,18 @@ func ByteSliceEqual(a, b []byte) bool {
 }
 
 func JsonResponse(response interface{}, w http.ResponseWriter, code int) {
-
     json, err := json.Marshal(response)
     if err != nil {
         log.Fatal(err)
         return
     }
 
-    w.WriteHeader(code)
+
+    w.Header().Set("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,Content-Type,Authorization")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
     w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
     w.Write(json)
 }
 
@@ -279,6 +281,9 @@ func SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,Content-Type")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 }
 

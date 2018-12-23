@@ -12,20 +12,24 @@ package swagger
 
 import (
 	"encoding/json"
-	"encoding/binary"
-    "fmt"
+	//"encoding/binary"
+  //"fmt"
     "log"
 	"net/http"
 	"net/url"
     "strings"
-	"errors"
+	//"errors"
 	"strconv"
     //"github.com/codegangsta/negroni"
-	"github.com/boltdb/bolt"
+	//"github.com/boltdb/bolt"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
+	"io/ioutil"
+	//"reflect"
 )
 
 
-func GetArticleById(w http.ResponseWriter, r *http.Request) {
+/*func GetArticleById(w http.ResponseWriter, r *http.Request) {
 	db, err := bolt.Open("my.db", 0600, nil)
     if err != nil {
         log.Fatal(err)
@@ -62,9 +66,92 @@ func GetArticleById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JsonResponse(article, w, http.StatusOK)
+}*/
+
+func GetArticleById(w http.ResponseWriter, r *http.Request) {
+	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	if err != nil {
+			log.Fatal(err)
+	}
+	defer db.Close()
+
+	articleId := strings.Split(r.URL.Path, "/")[3]
+	_, err = strconv.Atoi(articleId)
+	if err != nil {
+		reponse := ErrorResponse{"Wrong ArticleId"}
+		JsonResponse(reponse, w, http.StatusBadRequest)
+		return
+	}
+	
+	query, err := db.Query("select * from test.Article where id=" + articleId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer query.Close()
+
+	v, err := getJSON(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if string(v) == "[]" {
+		reponse := ErrorResponse{"Article Not Exists"}
+		JsonResponse(reponse, w, http.StatusNotFound)
+		return
+	}
+	v = v[1:len(v)-1]
+	str := strings.Replace(string(v), "id\":\"", "id\":", -1)
+	str = strings.Replace(str, "\",\"name", ",\"name", -1)
+	v = []byte(str)
+
+	var article Article
+	
+	_ = json.Unmarshal(v, &article)
+	file, err := ioutil.ReadFile(article.Content)
+	if err != nil {
+		log.Fatal(err)
+	}
+	article.Content = string(file)
+	JsonResponse(article, w, http.StatusOK)
+
+}
+func getJSON(rows *sql.Rows) ([]byte, error) {
+  columns, err := rows.Columns()
+  if err != nil {
+      return []byte(""), err
+  }
+	count := len(columns)
+
+  tableData := make([]map[string]interface{}, 0)
+  values := make([]interface{}, count)
+  valuePtrs := make([]interface{}, count)
+  for rows.Next() {
+      for i := 0; i < count; i++ {
+          valuePtrs[i] = &values[i]
+      }
+      rows.Scan(valuePtrs...)
+      entry := make(map[string]interface{})
+      for i, col := range columns {
+          var v interface{}
+          val := values[i]
+          b, ok := val.([]byte)
+          if ok {
+              v = string(b)
+          } else {
+              v = val
+          }
+          entry[col] = v
+      }
+      tableData = append(tableData, entry)
+	}
+  jsonData, err := json.Marshal(tableData)
+  if err != nil {
+      return []byte(""), err
+	}
+  return jsonData, nil 
 }
 
-func GetArticles(w http.ResponseWriter, r *http.Request) {
+/*func GetArticles(w http.ResponseWriter, r *http.Request) {
 	db, err := bolt.Open("my.db", 0600, nil)
     if err != nil {
         log.Fatal(err)
@@ -113,12 +200,57 @@ func GetArticles(w http.ResponseWriter, r *http.Request) {
 		JsonResponse(reponse, w, http.StatusNotFound)
 		return
 	}
-
+	json, err := json.Marshal(articles)
+	fmt.Println(string(json))
 	JsonResponse(articles, w, http.StatusOK)
 
+}*/
+
+func GetArticles(w http.ResponseWriter, r *http.Request) {
+	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	if err != nil {
+			log.Fatal(err)
+	}
+	defer db.Close()
+
+	u, err := url.Parse(r.URL.String())
+	if err != nil {
+		log.Fatal(err)
+	}
+	m, _ := url.ParseQuery(u.RawQuery)
+	page := m["page"][0]
+	IdIndex, err:= strconv.Atoi(page)
+	IdIndex = (IdIndex - 1)* 10
+	Id := strconv.Itoa(IdIndex)
+
+	query, err := db.Query("select * from test.Article limit " + Id + ",10")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer query.Close()
+
+	v, err := getJSON(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if string(v) == "[]" {
+		reponse := ErrorResponse{"Page is out of index"}
+		JsonResponse(reponse, w, http.StatusNotFound)
+		return
+	}
+
+	var article ArticlesResponse
+	v = []byte("{\"articles\":" + string(v) + "}")
+	str := strings.Replace(string(v), "id\":\"", "id\":", -1)
+	str = strings.Replace(str, "\",\"name", ",\"name", -1)
+	v = []byte(str)
+
+	_ = json.Unmarshal(v, &article)
+	JsonResponse(article, w, http.StatusOK)
 }
 
-func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
+/*func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 	db, err := bolt.Open("my.db", 0600, nil)
     if err != nil {
         log.Fatal(err)
@@ -182,5 +314,53 @@ func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	JsonResponse(comments, w, http.StatusOK)
+}*/
+
+func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
+	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	if err != nil {
+			log.Fatal(err)
+	}
+	defer db.Close()
+
+	articleId := strings.Split(r.URL.Path, "/")[3]
+	_, err = strconv.Atoi(articleId)
+	if err != nil {
+		reponse := ErrorResponse{"Wrong ArticleId"}
+		JsonResponse(reponse, w, http.StatusBadRequest)
+		return
+	}
+
+	query, err := db.Query("select * from test.Article where id=" + articleId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer query.Close()
+
+	if !query.Next() {
+		response := ErrorResponse{"Article Not Exists"}
+		JsonResponse(response, w, http.StatusBadRequest)  
+		return
+	}
+
+	query, err = db.Query("select * from test.Comment where articleId=" + articleId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer query.Close()
+
+	v, err := getJSON(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var comments Comments
+	v = []byte("{\"content\":" + string(v) + "}")
+	str := strings.Replace(string(v), "Id\":\"", "Id\":", -1)
+	str = strings.Replace(str, "\",\"author", ",\"author", -1)
+	v = []byte(str)
+
+	_ = json.Unmarshal(v, &comments)
 	JsonResponse(comments, w, http.StatusOK)
 }

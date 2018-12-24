@@ -149,7 +149,7 @@ func itob(v int) []byte {
 }*/
 
 func CreateComment(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func CreateComment(w http.ResponseWriter, r *http.Request) {
 }*/
 
 func SignIn(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}
@@ -424,7 +424,7 @@ func JsonResponse(response interface{}, w http.ResponseWriter, code int) {
 }*/
 
 func SignUp(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}

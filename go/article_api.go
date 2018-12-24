@@ -69,7 +69,7 @@ import (
 }*/
 
 func GetArticleById(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func getJSON(rows *sql.Rows) ([]byte, error) {
 }*/
 
 func GetArticles(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func GetArticles(w http.ResponseWriter, r *http.Request) {
 }*/
 
 func GetCommentsOfArticle(w http.ResponseWriter, r *http.Request) {
-	db, err := sql.Open("mysql", "testuser:123@tcp(172.18.0.2:3306)/?charset=utf8")
+	db, err := sql.Open("mysql", "testuser:123@tcp(mysql:3306)/?charset=utf8")
 	if err != nil {
 			log.Fatal(err)
 	}

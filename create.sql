@@ -1,0 +1,27 @@
+CREATE DATABASE `test`;
+
+CREATE TABLE `test`.`Article` (
+  `id` INT NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `date` VARCHAR(45) NOT NULL,
+  `content` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+CREATE TABLE `test`.`Comment` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `content` VARCHAR(100) NOT NULL,
+  `date` VARCHAR(100) NOT NULL,
+  `author` VARCHAR(100) NOT NULL,
+  `articleId` INT NOT NULL,
+  PRIMARY KEY (`id`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+CREATE TABLE `test`.`User` (
+  `username` VARCHAR(100) NOT NULL,
+  `password` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`username`))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
